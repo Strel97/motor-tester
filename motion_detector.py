@@ -99,6 +99,10 @@ class QuadMotionDetector:
         h, w = frame.shape[:2]
         rois = split_into_rois(w, h)
 
+        cv2.namedWindow(self.cfg.window_name, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(self.cfg.window_name, self.cfg.width, self.cfg.height)
+        print("Controls: [q]=quit  [space]=pause/resume  [r]=reset background(prev frame)")
+
         paused = False
         accum_scores = {k: 0.0 for k in rois.keys()}
         accum_motion = np.zeros((h, w), dtype=np.uint32)
@@ -130,14 +134,38 @@ class QuadMotionDetector:
                             winner = best
                             self.update_motion_result(MotionResult[winner])
 
+                        # motion_vis = (accum_motion > 0).astype(np.uint8) * 255
+                        # vis = overlay_motion(frame, motion_vis, cfg.overlay_alpha)
+                        draw_rois(frame, rois, winner)
+
+                        cv2.putText(
+                            frame,
+                            f"moving={winner or 'NONE'}  isolation={isolation:.2f}  total={int(total)}",
+                            (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2
+                        )
+                        # cv2.putText(
+                        #     frame,
+                        #     "  ".join([f"{k}:{int(v)}" for k, v in accum_scores.items()]),
+                        #     (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255,255,255), 2
+                        # )
+
+                        cv2.imshow(self.cfg.window_name, frame)
                         # reset window
                         accum_scores = {k: 0.0 for k in rois.keys()}
                         accum_motion[:] = 0
                         window_start = now
 
-                    time.sleep(0.01)
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord('q'):
+                    break
+                if key == ord(' '):
+                    paused = not paused
+                if key == ord('r'):
+                    self.reset()
+
         finally:
             cam.stop()
+            cv2.destroyAllWindows()
 
     @staticmethod
     def pick_best(scores: Dict[str, float]) -> Tuple[str, float, float]:
