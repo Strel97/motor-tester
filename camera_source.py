@@ -92,28 +92,18 @@ class PiCamera2Source(FrameSource):
 
     def stop(self) -> None:
         if self.picam2 is not None:
-            self.picam2.stop()
+            try:
+                self.picam2.stop()
+            finally:
+                try:
+                    self.picam2.close()
+                except Exception:
+                    pass
             self.picam2 = None
 
 
 def make_camera(cfg: AppConfig) -> FrameSource:
-    """
-    Try Picamera2 first (Pi), fallback to OpenCV (PC).
-    You can override by setting USE_PICAMERA2=0 in env if you want.
-    """
-    # Try Picamera2 if installed
-    try:
-        import importlib.util
-        if importlib.util.find_spec("picamera2") is not None:
-            cam = PiCamera2Source(cfg)
-            cam.start()
-            # Quick sanity: grab one frame
-            ok, frame = cam.read()
-            if ok and frame is not None:
-                cam.stop()
-                cam = PiCamera2Source(cfg)
-                return cam
-    except Exception:
-        pass
-
+    import importlib.util
+    if importlib.util.find_spec("picamera2") is not None:
+        return PiCamera2Source(cfg)
     return OpenCVCamera(cfg)
